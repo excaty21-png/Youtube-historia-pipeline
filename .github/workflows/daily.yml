@@ -1,0 +1,49 @@
+﻿name: Historia Pipeline
+
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ffmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Setup credentials
+        env:
+          YOUTUBE_TOKEN_B64: ${{ secrets.YOUTUBE_TOKEN_B64 }}
+          CLIENT_SECRETS_B64: ${{ secrets.CLIENT_SECRETS_B64 }}
+        run: |
+          echo $YOUTUBE_TOKEN_B64 | base64 -d > token.pickle
+          echo $CLIENT_SECRETS_B64 | base64 -d > client_secrets.json
+
+      - name: Create directories
+        run: mkdir -p output temp backgrounds particles music ambient fonts
+
+      - name: Download assets
+        env:
+          PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+        run: python setup_assets.py
+
+      - name: Run pipeline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
+        run: python pipeline.py

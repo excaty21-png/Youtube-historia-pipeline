@@ -1,0 +1,8 @@
+﻿google-generativeai
+edge-tts
+google-auth-oauthlib
+google-api-python-client
+requests
+python-dotenv
+Pillow
+pytz
