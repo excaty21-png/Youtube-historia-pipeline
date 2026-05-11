@@ -9,7 +9,7 @@ import requests
 from datetime import datetime
 from dotenv import load_dotenv
 
-load_dotenv(r"C:\Users\excat\Desktop\historia\.env")
+load_dotenv()
 
 API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 UNSPLASH_KEY = os.environ.get("UNSPLASH_ACCESS_KEY")
