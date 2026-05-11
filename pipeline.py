@@ -13,7 +13,7 @@ load_dotenv(r"C:\Users\excat\Desktop\historia\.env")
 
 API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 UNSPLASH_KEY = os.environ.get("UNSPLASH_ACCESS_KEY")
-BASE_DIR = r"C:\Users\excat\Desktop\historia"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 BG_DIR = os.path.join(BASE_DIR, "backgrounds")
 MUSIC_DIR = os.path.join(BASE_DIR, "music")
