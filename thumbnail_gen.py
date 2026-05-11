@@ -3,7 +3,7 @@ import time
 import os
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from io import BytesIO
-import google.generativeai as genai
+import anthropic
 from dotenv import load_dotenv
 import json
 
@@ -14,8 +14,7 @@ else:
     load_dotenv()
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-_model = genai.GenerativeModel("gemini-2.5-pro")
+_client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 FONT_PATH = os.path.join(BASE_DIR, "fonts", "Montserrat-ExtraBold.ttf")
 TEMP_DIR = os.path.join(BASE_DIR, "temp")
 
@@ -30,7 +29,10 @@ def download_font_if_missing():
         print("   - Font downloaded!")
 
 def generate_thumbnail_text(topic):
-    response = _model.generate_content(f"""Dla tego tematu historycznego napisz krotki tytul na miniaturke YouTube.
+    response = _client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=64,
+        messages=[{"role": "user", "content": f"""Dla tego tematu historycznego napisz krotki tytul na miniaturke YouTube.
 
 Temat: {topic}
 
@@ -41,8 +43,9 @@ ZASADY:
 - TYLKO tytul, zero komentarzy
 - Przyklad: "ZAGINELI W JEDNA NOC" lub "SEKRET KTOREGO NIE ZNASZ"
 
-Zwroc TYLKO tytul.""")
-    return response.text.strip().upper()
+Zwroc TYLKO tytul."""}]
+    )
+    return response.content[0].text.strip().upper()
 
 def get_background_image(topic):
     prompt = f"historical scene {topic}, cinematic, atmospheric, detailed, professional photography style, no text"

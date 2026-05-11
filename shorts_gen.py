@@ -1,6 +1,6 @@
 import asyncio
 import edge_tts
-import google.generativeai as genai
+import anthropic
 import subprocess
 import os
 import random
@@ -11,8 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-_model = genai.GenerativeModel("gemini-2.5-pro")
+_client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 MUSIC_DIR = os.path.join(BASE_DIR, "music")
@@ -34,7 +33,10 @@ def generate_shorts_text(topic):
 
     clean_topic = topic.replace("IMMERSIVE: ", "").replace("PODRÓŻ: ", "").replace("BELGESEL: ", "")
 
-    response = _model.generate_content(f"""Napisz krotki tekst po polsku dla YouTube Shorts na temat: {clean_topic}
+    response = _client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=512,
+        messages=[{"role": "user", "content": f"""Napisz krotki tekst po polsku dla YouTube Shorts na temat: {clean_topic}
 
 Tekst musi byc gotowy do czytania przez lektora - TYLKO sam tekst, zero tytulow, zero nagłówków, zero komentarzy.
 
@@ -44,11 +46,15 @@ Zakoncz slowami: Cała historia czeka na Ciebie na kanale Historia do Poduszki..
 
 Dlugosc: 80-90 slow. Styl: dynamiczny, tajemniczy. Pauzy z ... w kluczowych momentach. Nie koncz historii.
 
-Zwroc TYLKO gotowy tekst do czytania, nic wiecej.""")
-    return response.text
+Zwroc TYLKO gotowy tekst do czytania, nic wiecej."""}]
+    )
+    return response.content[0].text
 
 def generate_shorts_image_prompts(text):
-    response = _model.generate_content(f"""Podziel tekst na fragmenty po okolo 10 sekund (15-20 slow).
+    response = _client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": f"""Podziel tekst na fragmenty po okolo 10 sekund (15-20 slow).
 Dla kazdego fragmentu napisz prompt do generowania obrazu AI w formacie pionowym.
 
 Prompt musi byc:
@@ -67,8 +73,9 @@ Zwroc TYLKO JSON:
 }}
 
 Tekst:
-{text}""")
-    raw = response.text.strip().replace("`json", "").replace("`", "").strip()
+{text}"""}]
+    )
+    raw = response.content[0].text.strip().replace("`json", "").replace("`", "").strip()
     try:
         data = json.loads(raw)
         return data["segments"]

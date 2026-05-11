@@ -5,7 +5,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-import google.generativeai as genai
+import anthropic
 from dotenv import load_dotenv
 import requests
 import json
@@ -14,8 +14,7 @@ from datetime import datetime, timedelta
 import pytz
 
 load_dotenv()
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-_model = genai.GenerativeModel("gemini-2.5-pro")
+_client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube"]
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -64,7 +63,10 @@ def get_youtube_service():
 
 def generate_title_and_description(topic):
     print("   - Generating title and description...")
-    response = _model.generate_content(f"""Napisz tytul i opis YouTube dla kanalu Historia do Poduszki.
+    response = _client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": f"""Napisz tytul i opis YouTube dla kanalu Historia do Poduszki.
 Temat: {topic}
 
 Zwroc TYLKO JSON:
@@ -72,8 +74,9 @@ Zwroc TYLKO JSON:
   "title": "intrygujacy tytul po polsku max 70 znakow z emojis",
   "description": "opis po polsku 300-400 slow, wciagajacy, z emojis, opisuje temat historyczny, na koncu zacheta do subskrypcji Historia do Poduszki",
   "tags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6", "tag7", "tag8"]
-}}""")
-    raw = response.text.strip().replace("`json", "").replace("`", "").strip()
+}}"""}]
+    )
+    raw = response.content[0].text.strip().replace("`json", "").replace("`", "").strip()
     try:
         data = json.loads(raw)
         return data["title"], data["description"], data["tags"]
@@ -138,15 +141,19 @@ def upload_video(video_path, topic):
 
 def upload_shorts(video_path, topic, main_video_id=None):
     print(f"Uploading Shorts to YouTube...")
-    response = _model.generate_content(f"""Napisz tytul i tagi dla YouTube Shorts.
+    response = _client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=512,
+        messages=[{"role": "user", "content": f"""Napisz tytul i tagi dla YouTube Shorts.
 Temat: {topic}
 
 Zwroc TYLKO JSON:
 {{
   "title": "max 60 znakow, intrygujacy, z emoji i #Shorts na koncu",
   "tags": ["shorts", "historia", "historiadopoduszki", "tag4", "tag5"]
-}}""")
-    raw = response.text.strip().replace("`json", "").replace("`", "").strip()
+}}"""}]
+    )
+    raw = response.content[0].text.strip().replace("`json", "").replace("`", "").strip()
     try:
         data = json.loads(raw)
         title = data["title"]
