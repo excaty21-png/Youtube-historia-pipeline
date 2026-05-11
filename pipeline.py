@@ -141,7 +141,11 @@ def get_audio_duration(audio_path):
         "ffprobe", "-v", "quiet", "-print_format", "json",
         "-show_format", audio_path
     ], capture_output=True, text=True)
+    if not result.stdout.strip():
+        raise RuntimeError(f"ffprobe returned no output for {audio_path}. stderr: {result.stderr.strip()}")
     data = json.loads(result.stdout)
+    if "format" not in data:
+        raise RuntimeError(f"ffprobe output missing 'format' key: {data}")
     return float(data["format"]["duration"])
 
 def download_images(keywords, count):
