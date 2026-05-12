@@ -86,8 +86,8 @@ def generate_text(topic):
     client = anthropic.Anthropic(api_key=API_KEY)
     print("   - Generating text with Haiku...")
     message = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=2500,
+        model="claude-sonnet-4-6",
+        max_tokens=4096,
         messages=[{
             "role": "user",
             "content": f"""Jesteś narratorem audiobooków do zasypiania o tematyce historycznej.
@@ -112,8 +112,8 @@ ZASADY:
     raw_text = message.content[0].text
     print("   - Proofreading with Sonnet...")
     proofread = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=2500,
+        model="claude-sonnet-4-6",
+        max_tokens=4096,
         messages=[{
             "role": "user",
             "content": f"""Jesteś native speakerem języka polskiego i redaktorem.
