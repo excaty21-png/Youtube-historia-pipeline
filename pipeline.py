@@ -162,23 +162,33 @@ ZASADY:
 
     if word_count < 1500:
         needed = 1500 - word_count
-        print(f"   - Too short, generating ~{needed} more words...")
+        print(f"   - Too short ({word_count} words), extending by ~{needed} words...")
+        if content_format == "medieval_pov":
+            style_note = "drugi osobę (ty/twoje), atmosferyczne detale sensoryczne średniowiecza, powolne tempo"
+        else:
+            style_note = "narratora historycznego, spokojny medytacyjny ton, pauzy z ..."
         extension = client.messages.create(
             model="claude-haiku-4-5",
             max_tokens=2048,
             messages=[{
                 "role": "user",
-                "content": f"""Kontynuuj poniższy tekst historyczny w tym samym stylu i tonie.
-Napisz dokładnie {needed + 100} słów - kontynuację, która płynnie łączy się z tekstem.
-Nie powtarzaj tego co już jest. Nie dodawaj zakończenia ani pożegnania.
-Tylko ciągły tekst, bez nagłówków.
+                "content": f"""Piszesz tekst o temacie: {topic}
+Styl: {style_note}
 
-Tekst do kontynuacji:
-{text_body[-500:]}"""
+Poniżej jest środkowa część tekstu. Napisz naturalną kontynuację (~{needed + 100} słów).
+Kontynuacja musi:
+- Płynnie wynikać z ostatniego zdania
+- Rozwijać temat w głąb (nowe szczegóły, nowa scena, nowy aspekt)
+- Zachować identyczny styl i tempo
+- NIE kończyć historii, NIE dodawać pożegnania
+- Tylko ciągły tekst
+
+Koniec obecnego tekstu:
+...{text_body[-800:]}"""
             }]
         )
-        text_body = text_body + "\n\n" + extension.content[0].text.strip()
-        print(f"   - New word count: {len(text_body.split())}")
+        text_body = text_body + " " + extension.content[0].text.strip()
+        print(f"   - Extended to: {len(text_body.split())} words")
 
     raw_text = text_body + "\n\n" + ending
 
