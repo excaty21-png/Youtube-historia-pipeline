@@ -29,8 +29,8 @@ jobs:
           YOUTUBE_TOKEN_B64: ${{ secrets.YOUTUBE_TOKEN_B64 }}
           CLIENT_SECRETS_B64: ${{ secrets.CLIENT_SECRETS_B64 }}
         run: |
-          echo $YOUTUBE_TOKEN_B64 | base64 -d > token.pickle
-          echo $CLIENT_SECRETS_B64 | base64 -d > client_secrets.json
+          echo "$YOUTUBE_TOKEN_B64" | base64 -d > token.pickle
+          echo "$CLIENT_SECRETS_B64" | base64 -d > client_secrets.json
 
       - name: Create directories
         run: mkdir -p output temp backgrounds particles music ambient fonts
