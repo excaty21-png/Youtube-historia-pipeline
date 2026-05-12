@@ -132,7 +132,7 @@ Tekst:
     return proofread.content[0].text
 
 async def generate_audio(text, output_path):
-    communicate = edge_tts.Communicate(text, "pl-PL-MarekNeural", rate="-20%")
+    communicate = edge_tts.Communicate(text, "pl-PL-MarekNeural", rate="-10%")
     await communicate.save(output_path)
     print(f"   - Audio saved")
 
