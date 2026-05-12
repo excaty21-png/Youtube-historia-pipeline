@@ -87,43 +87,44 @@ def generate_text(topic):
     print("   - Generating text with Haiku...")
     message = client.messages.create(
         model="claude-haiku-4-5",
-        max_tokens=700,
+        max_tokens=2500,
         messages=[{
             "role": "user",
-            "content": f"""Jeste? narratorem audiobook?w do zasypiania o tematyce historycznej.
+            "content": f"""Jesteś narratorem audiobooków do zasypiania o tematyce historycznej.
 Napisz hipnotyczny tekst po polsku na temat: {topic}
 
-STRUKTURA OBOWI?ZKOWA:
-1. Pierwsze zdanie: bardzo intryguj?ce pytanie lub zaskakuj?ce stwierdzenie (hook)
-2. Powolne, spokojne rozwini?cie historii
-3. Zako?czenie lekko niedopowiedziane, tajemnicze
+STRUKTURA OBOWIĄZKOWA:
+1. Pierwsze zdanie: bardzo intrygujące pytanie lub zaskakujące stwierdzenie (hook)
+2. Powolne, spokojne rozwinięcie historii - szczegółowe opisy, atmosfera, postacie
+3. Środkowa część: rozbudowane opisy historyczne, ciekawostki, detale
+4. Zakończenie lekko niedopowiedziane, tajemnicze
 
 ZASADY:
-- D?ugo??: dok?adnie 200-220 s??w
-- Tempo: wolne, uspokajaj?ce zdania
+- Długość: dokładnie 1200-1400 słów (to jest BARDZO WAŻNE - musi być długi tekst!)
+- Tempo: wolne, uspokajające zdania
 - Styl: cichy, medytacyjny, jak szept przed snem
-- U?ywaj poprawnych polskich znak?w: ?, ?, ?, ?, ?, ?, ?, ?, ?
-- Dodaj pauzy z ... co kilka zda?
-- Tylko ci?g?y tekst, bez nag??wk?w
-- Ostatnie zdanie ZAWSZE: Jutro opowiem ci kolejn? histori?... Je?li chcesz wi?cej, subskrybuj Historia do Poduszki..."""
+- Używaj poprawnych polskich znaków: ą, ę, ó, ś, ź, ż, ć, ń, ł
+- Dodaj pauzy z ... co kilka zdań
+- Tylko ciągły tekst, bez nagłówków ani podziałów
+- Ostatnie zdanie ZAWSZE: Jutro opowiem ci kolejną historię... Jeśli chcesz więcej, subskrybuj Historia do Poduszki..."""
         }]
     )
     raw_text = message.content[0].text
     print("   - Proofreading with Sonnet...")
     proofread = client.messages.create(
         model="claude-haiku-4-5",
-        max_tokens=700,
+        max_tokens=2500,
         messages=[{
             "role": "user",
-            "content": f"""Jeste? native speakerem j?zyka polskiego i redaktorem.
-Popraw poni?szy tekst:
-1. Popraw WSZYSTKIE b??dy gramatyczne i ortograficzne
-2. Popraw odmian? przez przypadki
-3. Upewnij si? ?e wszystkie polskie znaki s? poprawne: ?,?,?,?,?,?,?,?,?
-4. Zachowaj oryginalny styl, struktur? i znaczenie
+            "content": f"""Jesteś native speakerem języka polskiego i redaktorem.
+Popraw poniższy tekst:
+1. Popraw WSZYSTKIE błędy gramatyczne i ortograficzne
+2. Popraw odmianę przez przypadki
+3. Upewnij się że wszystkie polskie znaki są poprawne: ą,ę,ó,ś,ź,ż,ć,ń,ł
+4. Zachowaj oryginalny styl, strukturę i znaczenie
 5. Zachowaj pauzy ...
-6. Zachowaj ostatnie zdanie: Jutro opowiem ci kolejn? histori?... Je?li chcesz wi?cej, subskrybuj Historia do Poduszki...
-7. Zwr?? TYLKO poprawiony tekst, zero komentarzy
+6. Zachowaj ostatnie zdanie: Jutro opowiem ci kolejną historię... Jeśli chcesz więcej, subskrybuj Historia do Poduszki...
+7. Zwróć TYLKO poprawiony tekst, zero komentarzy
 
 Tekst:
 {raw_text}"""
@@ -199,11 +200,8 @@ def generate_video(audio_path, images, output_path, category):
 
     for i, img_path in enumerate(images):
         inputs.extend(["-loop", "1", "-t", str(img_duration + fade_duration), "-i", img_path])
-        if i % 2 == 0:
-            zoom_filter = f"[{i}:v]scale=1920:-1,zoompan=z='min(zoom+0.0008,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={(img_duration+fade_duration)*25}:s=1920x1080:fps=25[v{i}]"
-        else:
-            zoom_filter = f"[{i}:v]scale=1920:-1,zoompan=z='if(lte(zoom,1.0),1.3,max(1.0,zoom-0.0008))':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={(img_duration+fade_duration)*25}:s=1920x1080:fps=25[v{i}]"
-        filter_parts.append(zoom_filter)
+        scale_filter = f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,setsar=1,fps=25[v{i}]"
+        filter_parts.append(scale_filter)
 
     filter_complex = ";".join(filter_parts)
     if len(images) > 1:
@@ -315,6 +313,20 @@ async def main():
         print(f"{video_path}")
         print(f"Topic: {topic}")
         print(f"{'='*50}\n")
+
+        print("STEP 7: Uploading to YouTube...")
+        try:
+            from youtube_upload import upload_video
+            video_id = upload_video(video_path, topic)
+            print(f"   Main video uploaded: {video_id}\n")
+
+            print("STEP 8: Creating and uploading Shorts...")
+            from shorts_gen import create_shorts
+            await create_shorts(topic, category, video_id, timestamp)
+        except Exception as e:
+            print(f"   Upload error: {e}")
+            import traceback
+            traceback.print_exc()
 
     except Exception as e:
         print(f"\nERROR: {e}")

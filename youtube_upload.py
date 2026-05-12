@@ -33,7 +33,7 @@ def get_next_publish_time():
     publish_time = now.replace(hour=PUBLISH_HOUR, minute=PUBLISH_MINUTE, second=0, microsecond=0)
     if now >= publish_time:
         publish_time += timedelta(days=1)
-    return publish_time.strftime("%Y-%m-%dT%H:%M:%S+02:00")
+    return publish_time.isoformat()
 
 def get_next_shorts_publish_time():
     warsaw = pytz.timezone("Europe/Warsaw")
@@ -41,7 +41,7 @@ def get_next_shorts_publish_time():
     publish_time = now.replace(hour=SHORTS_PUBLISH_HOUR, minute=SHORTS_PUBLISH_MINUTE, second=0, microsecond=0)
     if now >= publish_time:
         publish_time += timedelta(days=1)
-    return publish_time.strftime("%Y-%m-%dT%H:%M:%S+02:00")
+    return publish_time.isoformat()
 
 def get_youtube_service():
     creds = None
