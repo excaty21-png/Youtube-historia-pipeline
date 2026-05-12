@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-UNSPLASH_KEY = os.environ.get("UNSPLASH_ACCESS_KEY")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 BG_DIR = os.path.join(BASE_DIR, "backgrounds")
@@ -149,36 +148,81 @@ def get_audio_duration(audio_path):
         raise RuntimeError(f"ffprobe output missing 'format' key: {data}")
     return float(data["format"]["duration"])
 
-def download_images(keywords, count):
-    print(f"   - Downloading {count} images from Unsplash...")
-    images = []
-    keyword_cycle = keywords * 10
-    for i, keyword in enumerate(keyword_cycle):
-        if len(images) >= count:
-            break
+def generate_image_prompts(text, audio_duration):
+    client = anthropic.Anthropic(api_key=API_KEY)
+    segment_count = max(10, int(audio_duration / 20))
+    print(f"   - {int(audio_duration)}s audio → {segment_count} images needed (1 per 20s)")
+    message = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=2048,
+        messages=[{"role": "user", "content": f"""Podziel tekst na fragmenty po okolo 20 sekund (40-50 slow). Utworz DOKLADNIE {segment_count} segmentow.
+Dla kazdego fragmentu napisz prompt do generowania obrazu AI.
+
+Prompt musi byc:
+- Po angielsku
+- Styl: soft warm illustration, peaceful dreamy atmosphere, gentle golden light, historical, relaxing, pastel colors
+- Maksymalnie 15 slow
+- Utworz DOKLADNIE {segment_count} segmentow!
+
+Zwroc TYLKO JSON:
+{{
+  "segments": [
+    {{
+      "text": "fragment tekstu",
+      "prompt": "image prompt"
+    }}
+  ]
+}}
+
+Tekst:
+{text}"""}]
+    )
+    raw = message.content[0].text.strip().replace("`json", "").replace("`", "").strip()
+    try:
+        data = json.loads(raw)
+        return data["segments"]
+    except json.JSONDecodeError:
+        import re
+        segments = []
+        pattern = r'"text"\s*:\s*"([^"]+)"\s*,\s*"prompt"\s*:\s*"([^"]+)"'
+        matches = re.findall(pattern, raw)
+        for t, p in matches:
+            segments.append({"text": t, "prompt": p})
+        if segments:
+            return segments
+        raise
+
+def download_pollinations_image(prompt, output_path, seed=0):
+    import time
+    for attempt in range(3):
         try:
-            response = requests.get(
-                "https://api.unsplash.com/photos/random",
-                params={"query": keyword, "orientation": "landscape", "client_id": UNSPLASH_KEY},
-                timeout=10
-            )
-            if response.status_code == 200:
-                img_url = response.json()["urls"]["regular"]
-                img_response = requests.get(img_url, timeout=15)
-                img_path = os.path.join(TEMP_DIR, f"img_{i}.jpg")
-                with open(img_path, "wb") as f:
-                    f.write(img_response.content)
-                images.append(img_path)
-                print(f"     {len(images)}/{count}: {keyword}")
+            url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(prompt)}?width=1920&height=1080&nologo=true&seed={seed}"
+            response = requests.get(url, timeout=90)
+            if len(response.content) > 10000:
+                with open(output_path, "wb") as f:
+                    f.write(response.content)
+                return True
+            time.sleep(3)
         except Exception as e:
-            print(f"     Failed: {e}")
-    while len(images) < count:
-        fallback_files = [os.path.join(BG_DIR, f) for f in os.listdir(BG_DIR) if f.endswith('.jpg')]
-        if fallback_files:
-            images.append(random.choice(fallback_files))
+            print(f"     Attempt {attempt+1} failed: {e}")
+            time.sleep(5)
+    return False
+
+def generate_ai_images(segments):
+    import time
+    print(f"   - Generating {len(segments)} AI images via Pollinations...")
+    images = []
+    for i, seg in enumerate(segments):
+        img_path = os.path.join(TEMP_DIR, f"seg_{i}.jpg")
+        print(f"     {i+1}/{len(segments)}: {seg['prompt'][:60]}...")
+        success = download_pollinations_image(seg["prompt"], img_path, seed=i*100)
+        if success:
+            images.append(img_path)
         else:
-            break
-    return images[:count]
+            fallback_files = [os.path.join(BG_DIR, f) for f in os.listdir(BG_DIR) if f.endswith('.jpg')]
+            if fallback_files:
+                images.append(random.choice(fallback_files))
+    return images
 
 def generate_video(audio_path, images, output_path, category):
     print("   - Building video...")
@@ -192,7 +236,7 @@ def generate_video(audio_path, images, output_path, category):
     print(f"   - Category: {category} ? ambient: {ambient_file}")
 
     duration = get_audio_duration(audio_path)
-    img_duration = 30
+    img_duration = 20
     fade_duration = 1
 
     filter_parts = []
@@ -294,10 +338,9 @@ async def main():
         print(f"   Done\n")
 
         audio_duration = get_audio_duration(audio_path)
-        photo_count = max(3, int(audio_duration / 30) + 1)
-        print(f"STEP 4: Downloading images...")
-        print(f"   Video: {int(audio_duration)}s, 30s/photo = {photo_count} photos needed")
-        images = download_images(keywords, count=photo_count)
+        print(f"STEP 4: Generating AI images...")
+        segments = generate_image_prompts(text, audio_duration)
+        images = generate_ai_images(segments)
         temp_files.extend([img for img in images if TEMP_DIR in img])
         print(f"   Done: {len(images)} images\n")
 
