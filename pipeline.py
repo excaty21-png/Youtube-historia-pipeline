@@ -21,23 +21,7 @@ TEMP_DIR = os.path.join(BASE_DIR, "temp")
 
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-HISTORIA_TOPICS = [
-    "Zagini?cie Maj?w - koniec wielkiej cywilizacji",
-    "Aleksander Wielki - podb?j ?wiata w 10 lat",
-    "Czarna ?mier? - d?uma kt?ra zmieni?a Europ?",
-    "Kleopatra - ostatnia faraonka Egiptu",
-    "Wikingowie w Ameryce - przed Kolumbem",
-    "Pompeje - miasto zamro?one w czasie",
-    "Biblioteka Aleksandryjska - utracona wiedza ?wiata",
-    "Czyngis-chan - najwi?ksze imperium w historii",
-    "Atlantyda - mit czy rzeczywisto??",
-    "Krzy?owcy - w imi? Boga i z?ota",
-    "Inkowie - imperium bez ko?a i pisma",
-    "Rasputin - cz?owiek kt?rego nie mo?na by?o zabi?",
-    "Tutanchamon - kl?twa faraona",
-    "Spartanie - wojownicy kt?rzy bali si? tylko jednego",
-    "Nostradamus - proroctwa kt?re si? spe?ni?y"
-]
+STATE_FILE = os.path.join(BASE_DIR, "state.json")
 
 CATEGORIES = {
     "antik": "antik.mp3",
@@ -47,49 +31,95 @@ CATEGORIES = {
     "deniz": "deniz.mp3"
 }
 
-def select_topic_and_keywords():
+def load_state():
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"last_format": "medieval_pov", "used_topics": []}
+
+def save_state(state):
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False, indent=2)
+
+def select_topic_and_keywords(used_topics, content_format):
     client = anthropic.Anthropic(api_key=API_KEY)
-    print("   - AI selecting topic, keywords and category...")
+    print(f"   - AI selecting topic (format: {content_format})...")
+    used_str = "\n".join(f"- {t}" for t in used_topics[-50:]) if used_topics else "brak"
+
+    if content_format == "medieval_pov":
+        format_instruction = """Format: IMMERSIVE MEDIEVAL POV
+Wybierz temat związany ze średniowieczem (życie codzienne, klasztory, plaga, zamki, rycerze, pielgrzymi, inkwizycja, głód, zima, wioski, lasy, modlitwa).
+Temat musi być konkretną sytuacją lub momentem (nie ogólnym tematem), np:
+"Noc w klasztorze podczas zarazy - 1349"
+"Podróż pielgrzyma przez zimowy las - 1200"
+"Ostatnia noc oblężonego zamku - 1415"
+Kategoria ZAWSZE: ortacag"""
+    else:
+        format_instruction = """Format: HISTORICAL DOCUMENTARY
+Wybierz fascynujący temat historyczny z dowolnej epoki i cywilizacji.
+Może dotyczyć: starożytnych cywilizacji, wielkich odkryć, tajemnic historii, słynnych postaci, bitew, upadku imperiów, epidemii, mitów.
+Dobierz odpowiednią kategorię ambient."""
+
     message = client.messages.create(
         model="claude-haiku-4-5",
-        max_tokens=300,
+        max_tokens=400,
         messages=[{
             "role": "user",
-            "content": f"""Wybierz jeden temat z tej listy i wygeneruj s?owa kluczowe oraz kategori?.
+            "content": f"""Wybierz unikalny temat historyczny dla podcastu do zasypiania "Historia do Poduszki".
 
-Lista temat?w:
-{chr(10).join(HISTORIA_TOPICS)}
+{format_instruction}
+
+UŻYTE JUŻ TEMATY (nie powtarzaj żadnego z tych):
+{used_str}
 
 Kategorie ambient:
-- antik: staro?ytne cywilizacje, Egipt, Grecja, Rzym, Majowie, Inkowie
-- savas: wojny, bitwy, podboje, imperia, Aleksander, Czyngis-chan
-- gizem: tajemnice, zagini?cia, przepowiednie, Atlantyda, kl?twy
-- ortacag: ?redniowiecze, krzy?owcy, d?uma, zamki
+- antik: starożytne cywilizacje, Egipt, Grecja, Rzym, Majowie, Inkowie
+- savas: wojny, bitwy, podboje, imperia
+- gizem: tajemnice, zaginięcia, przepowiednie, klątwy
+- ortacag: średniowiecze, krzyżowcy, dżuma, zamki
 - deniz: odkrycia, Wikingowie, wyprawy morskie
 
-Zwr?? TYLKO JSON, zero komentarzy:
+Zwróć TYLKO JSON:
 {{
-  "topic": "wybrany temat",
-  "keywords": ["keyword1", "keyword2", "keyword3"],
+  "topic": "unikalny temat po polsku",
+  "keywords": ["english_keyword1", "english_keyword2", "english_keyword3"],
   "category": "jedna z: antik, savas, gizem, ortacag, deniz"
-}}
-
-S?owa kluczowe po angielsku, historyczne zdj?cia pasuj?ce do tematu."""
+}}"""
         }]
     )
     raw = message.content[0].text.strip().replace("`json", "").replace("`", "").strip()
     data = json.loads(raw)
     return data["topic"], data["keywords"], data["category"]
 
-def generate_text(topic):
+def generate_text(topic, content_format):
     client = anthropic.Anthropic(api_key=API_KEY)
-    print("   - Generating text with Haiku...")
-    message = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=4096,
-        messages=[{
-            "role": "user",
-            "content": f"""Jesteś narratorem audiobooków do zasypiania o tematyce historycznej.
+    print(f"   - Generating text ({content_format})...")
+
+    if content_format == "medieval_pov":
+        prompt = f"""Jesteś mistrzem immersyjnego storytellingu. Napisz hipnotyczny tekst po polsku w drugiej osobie ("ty", "twoje"), gdzie słuchacz przeżywa średniowiecze osobiście.
+
+Temat: {topic}
+
+STYL OBOWIĄZKOWY:
+- Narracja w drugiej osobie: "Czujesz...", "Widzisz...", "Słyszysz...", "Twoje nogi..."
+- Atmosferyczne, kinematograficzne opisy
+- Detale sensoryczne: śnieg, wiatr, dzwony, świece, błoto, zamki, klasztory, konie, las, modlitwy, drewniane wioski, zimowe noce
+- Krótkie, immersyjne akapity
+- Powolne tempo
+- Mroczny, ale spokojny ton
+- Realistyczne średniowieczne życie codzienne
+- Emocje: samotność, strach, przetrwanie, tajemnica, religia, głód, zaraza
+- ZERO nowoczesnego języka
+- Pisz jak "zapomniane wspomnienie z innego życia"
+- Pauzy z ... co kilka zdań
+
+ZASADY:
+- Długość: dokładnie 1500-1700 słów
+- Używaj poprawnych polskich znaków: ą, ę, ó, ś, ź, ż, ć, ń, ł
+- Tylko ciągły tekst, bez nagłówków
+- Ostatnie zdanie ZAWSZE: Jutro zabiorę cię w inne miejsce... Jeśli chcesz więcej, subskrybuj Historia do Poduszki..."""
+    else:
+        prompt = f"""Jesteś narratorem audiobooków do zasypiania o tematyce historycznej.
 Napisz hipnotyczny tekst po polsku na temat: {topic}
 
 STRUKTURA OBOWIĄZKOWA:
@@ -99,17 +129,21 @@ STRUKTURA OBOWIĄZKOWA:
 4. Zakończenie lekko niedopowiedziane, tajemnicze
 
 ZASADY:
-- Długość: dokładnie 1500-1700 słów (to jest BARDZO WAŻNE - musi być długi tekst na 10-12 minut!)
+- Długość: dokładnie 1500-1700 słów
 - Tempo: wolne, uspokajające zdania
 - Styl: cichy, medytacyjny, jak szept przed snem
 - Używaj poprawnych polskich znaków: ą, ę, ó, ś, ź, ż, ć, ń, ł
 - Dodaj pauzy z ... co kilka zdań
 - Tylko ciągły tekst, bez nagłówków ani podziałów
 - Ostatnie zdanie ZAWSZE: Jutro opowiem ci kolejną historię... Jeśli chcesz więcej, subskrybuj Historia do Poduszki..."""
-        }]
+
+    message = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=4096,
+        messages=[{"role": "user", "content": prompt}]
     )
     raw_text = message.content[0].text
-    print("   - Proofreading with Sonnet...")
+    print("   - Proofreading...")
     proofread = client.messages.create(
         model="claude-haiku-4-5",
         max_tokens=4096,
@@ -122,7 +156,7 @@ Popraw poniższy tekst:
 3. Upewnij się że wszystkie polskie znaki są poprawne: ą,ę,ó,ś,ź,ż,ć,ń,ł
 4. Zachowaj oryginalny styl, strukturę i znaczenie
 5. Zachowaj pauzy ...
-6. Zachowaj ostatnie zdanie: Jutro opowiem ci kolejną historię... Jeśli chcesz więcej, subskrybuj Historia do Poduszki...
+6. Zachowaj ostatnie zdanie bez zmian
 7. Zwróć TYLKO poprawiony tekst, zero komentarzy
 
 Tekst:
@@ -335,14 +369,18 @@ async def main():
     print(f"{'='*50}\n")
 
     try:
+        state = load_state()
+        content_format = "documentary" if state["last_format"] == "medieval_pov" else "medieval_pov"
+        print(f"FORMAT: {content_format}\n")
+
         print("STEP 1: AI selecting topic...")
-        topic, keywords, category = select_topic_and_keywords()
+        topic, keywords, category = select_topic_and_keywords(state["used_topics"], content_format)
         print(f"   Topic: {topic}")
         print(f"   Keywords: {keywords}")
         print(f"   Category: {category}\n")
 
         print("STEP 2: Generating text...")
-        text = generate_text(topic)
+        text = generate_text(topic, content_format)
         print(f"   Done: {len(text)} characters\n")
 
         audio_path = os.path.join(TEMP_DIR, f"audio_{timestamp}.mp3")
@@ -365,10 +403,16 @@ async def main():
         print("STEP 6: Cleaning temp files...")
         cleanup(temp_files)
 
+        state["last_format"] = content_format
+        state["used_topics"].append(topic)
+        save_state(state)
+        print(f"   State saved (used topics: {len(state['used_topics'])})\n")
+
         print(f"\n{'='*50}")
         print(f"DONE! Video ready:")
         print(f"{video_path}")
         print(f"Topic: {topic}")
+        print(f"Format: {content_format}")
         print(f"{'='*50}\n")
 
         print("STEP 7: Uploading to YouTube...")
