@@ -242,10 +242,24 @@ def generate_video(audio_path, images, output_path, category):
     filter_parts = []
     inputs = []
 
+    total_frames = (img_duration + fade_duration) * 25
     for i, img_path in enumerate(images):
         inputs.extend(["-loop", "1", "-t", str(img_duration + fade_duration), "-i", img_path])
-        scale_filter = f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,setsar=1,fps=25[v{i}]"
-        filter_parts.append(scale_filter)
+        if i % 2 == 0:
+            # zoom in: 100% -> 115%
+            zoom_filter = (
+                f"[{i}:v]scale=8000:-1,zoompan=z='min(1+on/{total_frames}*0.15,1.15)'"
+                f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+                f":d={total_frames}:s=1920x1080:fps=25[v{i}]"
+            )
+        else:
+            # zoom out: 115% -> 100%
+            zoom_filter = (
+                f"[{i}:v]scale=8000:-1,zoompan=z='max(1.15-on/{total_frames}*0.15,1.0)'"
+                f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+                f":d={total_frames}:s=1920x1080:fps=25[v{i}]"
+            )
+        filter_parts.append(zoom_filter)
 
     filter_complex = ";".join(filter_parts)
     if len(images) > 1:
