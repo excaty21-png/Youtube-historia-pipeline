@@ -143,6 +143,45 @@ ZASADY:
         messages=[{"role": "user", "content": prompt}]
     )
     raw_text = message.content[0].text
+
+    if content_format == "medieval_pov":
+        ending = "Jutro zabiorę cię w inne miejsce... Jeśli chcesz więcej, subskrybuj Historia do Poduszki..."
+    else:
+        ending = "Jutro opowiem ci kolejną historię... Jeśli chcesz więcej, subskrybuj Historia do Poduszki..."
+
+    # Strip ending before word count check
+    text_body = raw_text
+    for end_variant in [ending, "Jutro opowiem", "Jutro zabiorę", "subskrybuj Historia do Poduszki"]:
+        idx = text_body.rfind(end_variant[:20])
+        if idx != -1:
+            text_body = text_body[:idx].rstrip()
+            break
+
+    word_count = len(text_body.split())
+    print(f"   - Word count: {word_count}")
+
+    if word_count < 1500:
+        needed = 1500 - word_count
+        print(f"   - Too short, generating ~{needed} more words...")
+        extension = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=2048,
+            messages=[{
+                "role": "user",
+                "content": f"""Kontynuuj poniższy tekst historyczny w tym samym stylu i tonie.
+Napisz dokładnie {needed + 100} słów - kontynuację, która płynnie łączy się z tekstem.
+Nie powtarzaj tego co już jest. Nie dodawaj zakończenia ani pożegnania.
+Tylko ciągły tekst, bez nagłówków.
+
+Tekst do kontynuacji:
+{text_body[-500:]}"""
+            }]
+        )
+        text_body = text_body + "\n\n" + extension.content[0].text.strip()
+        print(f"   - New word count: {len(text_body.split())}")
+
+    raw_text = text_body + "\n\n" + ending
+
     print("   - Proofreading...")
     proofread = client.messages.create(
         model="claude-haiku-4-5",
