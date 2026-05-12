@@ -99,7 +99,7 @@ STRUKTURA OBOWIĄZKOWA:
 4. Zakończenie lekko niedopowiedziane, tajemnicze
 
 ZASADY:
-- Długość: dokładnie 1200-1400 słów (to jest BARDZO WAŻNE - musi być długi tekst!)
+- Długość: dokładnie 1500-1700 słów (to jest BARDZO WAŻNE - musi być długi tekst na 10-12 minut!)
 - Tempo: wolne, uspokajające zdania
 - Styl: cichy, medytacyjny, jak szept przed snem
 - Używaj poprawnych polskich znaków: ą, ę, ó, ś, ź, ż, ć, ń, ł
@@ -132,7 +132,7 @@ Tekst:
     return proofread.content[0].text
 
 async def generate_audio(text, output_path):
-    communicate = edge_tts.Communicate(text, "pl-PL-MarekNeural", rate="-10%")
+    communicate = edge_tts.Communicate(text, "pl-PL-MarekNeural", rate="-20%")
     await communicate.save(output_path)
     print(f"   - Audio saved")
 
@@ -291,18 +291,18 @@ def generate_video(audio_path, images, output_path, category):
     if music_path and has_ambient:
         full_filter = (
             filter_complex +
-            f";[{len(images)}:a]volume=1.0[voice]" +
-            f";[{music_idx}:a]volume=0.10[music]" +
-            f";[{ambient_idx}:a]volume=0.08[ambient]" +
-            f";[voice][music][ambient]amix=inputs=3:duration=first[audio]"
+            f";[{len(images)}:a]volume=2.0[voice]" +
+            f";[{music_idx}:a]volume=0.12[music]" +
+            f";[{ambient_idx}:a]volume=0.10[ambient]" +
+            f";[voice][music][ambient]amix=inputs=3:duration=first:normalize=0[audio]"
         )
         cmd.extend(["-filter_complex", full_filter, "-map", final_video_label, "-map", "[audio]"])
     elif music_path:
         full_filter = (
             filter_complex +
-            f";[{len(images)}:a]volume=1.0[voice]" +
+            f";[{len(images)}:a]volume=2.0[voice]" +
             f";[{music_idx}:a]volume=0.12[music]" +
-            f";[voice][music]amix=inputs=2:duration=first[audio]"
+            f";[voice][music]amix=inputs=2:duration=first:normalize=0[audio]"
         )
         cmd.extend(["-filter_complex", full_filter, "-map", final_video_label, "-map", "[audio]"])
     else:
