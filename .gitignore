@@ -13,3 +13,6 @@ music/*.mp3
 ambient/*.mp3
 backgrounds/*.jpg
 fonts/
+*_b64.txt
+token_secret.txt
+*_2.jpg
